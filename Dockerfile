@@ -2,13 +2,13 @@ FROM n8nio/n8n:latest-debian
 
 USER root
 
-# Установка Chromium + всех зависимостей для Puppeteer/whatsapp-web.js
+# Установка Chromium и всех необходимых библиотек для Puppeteer/whatsapp-web.js
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     chromium-driver \
     ca-certificates \
     fonts-liberation \
-    libasound2 \
+    libasound2t64 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
     libc6 \
@@ -39,12 +39,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxtst6 \
     wget \
     xdg-utils \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-# Установка community-нода
+# Установка твоего community-нода
 RUN npm install -g @salmaneelidrissi/n8n-nodes-whatsapp-web@^1
 
-# Директория для сессий WhatsApp (whatsapp-web.js использует .wwebjs_auth)
+# Папка для сессий (whatsapp-web.js сохраняет авторизацию здесь)
 RUN mkdir -p /home/node/.wwebjs_auth && \
     chown -R node:node /home/node/.wwebjs_auth
 
