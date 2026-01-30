@@ -1,8 +1,23 @@
-FROM n8nio/n8n:latest-debian
+# Stage 1: Builder для установки n8n и зависимостей
+FROM node:22-bookworm-slim AS builder
 
-USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
-# Установка Chromium и всех необходимых библиотек для Puppeteer/whatsapp-web.js
+# Установка n8n глобально
+RUN npm install -g n8n@latest
+
+# Установка твоего whatsapp-нода
+RUN npm install -g @salmaneelidrissi/n8n-nodes-whatsapp-web@^1
+
+# Stage 2: Финальный образ (минимальный)
+FROM node:22-bookworm-slim
+
+# Установка Chromium + libs для Puppeteer
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     chromium-driver \
@@ -41,13 +56,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xdg-utils \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-# Установка твоего community-нода
-RUN npm install -g @salmaneelidrissi/n8n-nodes-whatsapp-web@^1
+# Копируем n8n и ноды из builder
+COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=builder /usr/local/bin/n8n /usr/local/bin/n8n
+COPY --from=builder /usr/local/bin/*whatsapp* /usr/local/bin/  # если есть бинарники нода
 
-# Папка для сессий (whatsapp-web.js сохраняет авторизацию здесь)
-RUN mkdir -p /home/node/.wwebjs_auth && \
-    chown -R node:node /home/node/.wwebjs_auth
+# Папка для сессий whatsapp-web.js
+RUN mkdir -p /home/node/.wwebjs_auth && chown -R node:node /home/node/.wwebjs_auth
 
 USER node
 
 EXPOSE 5678
+
+CMD ["n8n", "start"]
