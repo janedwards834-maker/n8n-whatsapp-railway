@@ -1,4 +1,4 @@
-# Stage 1: Builder для установки n8n и зависимостей
+# Stage 1: Builder для n8n и нода
 FROM node:22-bookworm-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -8,22 +8,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка n8n глобально
-RUN npm install -g n8n@latest
+RUN npm install -g n8n@latest @salmaneelidrissi/n8n-nodes-whatsapp-web@^1
 
-# Установка твоего whatsapp-нода
-RUN npm install -g @salmaneelidrissi/n8n-nodes-whatsapp-web@^1
-
-# Stage 2: Финальный образ (минимальный)
+# Stage 2: Финальный минимальный образ
 FROM node:22-bookworm-slim
 
-# Установка Chromium + libs для Puppeteer
+USER root
+
+# Установка Chromium + ключевых зависимостей (без libasound2t64 — используем libasound2)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
-    chromium-driver \
     ca-certificates \
     fonts-liberation \
-    libasound2t64 \
+    libasound2 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
     libc6 \
@@ -56,12 +53,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xdg-utils \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-# Копируем n8n и ноды из builder
+# Копируем n8n и whatsapp-нод из builder
 COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=builder /usr/local/bin/n8n /usr/local/bin/n8n
-COPY --from=builder /usr/local/bin/*whatsapp* /usr/local/bin/  # если есть бинарники нода
 
-# Папка для сессий whatsapp-web.js
 RUN mkdir -p /home/node/.wwebjs_auth && chown -R node:node /home/node/.wwebjs_auth
 
 USER node
