@@ -1,29 +1,13 @@
 # =========================================
-# n8n + Chromium (Puppeteer) on Node 20 LTS
+# n8n + WhatsApp Web + Chromium
+# Node 20 LTS — STABLE
 # =========================================
 
-# Stage 1: Builder — ставим n8n и кастомную ноду глобально
-FROM node:20-bookworm-slim AS builder
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    python3 \
-    make \
-    g++ \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# Ставим n8n и WhatsApp-ноду (как у тебя было)
-RUN npm install -g n8n@latest @salmaneelidrissi/n8n-nodes-whatsapp-web@^1 \
-    && npm cache clean --force
-
-
-# Stage 2: Runtime — минимальный образ с Chromium + n8n
 FROM node:20-bookworm-slim
 
 USER root
 
-# Chromium + зависимости (Debian Bookworm)
+# Системные зависимости + Chromium
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     ca-certificates \
@@ -57,24 +41,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrandr2 \
     libxrender1 \
     libxtst6 \
+    git \
+    python3 \
+    make \
+    g++ \
     wget \
     xdg-utils \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+    && rm -rf /var/lib/apt/lists/*
 
-# Копируем глобально установленные модули и бинарник n8n из builder
-COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
-COPY --from=builder /usr/local/bin/n8n /usr/local/bin/n8n
+# Рабочая директория
+WORKDIR /app
 
-# (Опционально, но часто помогает) чтобы глобальные модули точно резолвились
-ENV NODE_PATH=/usr/local/lib/node_modules
+# Локальная установка n8n + WhatsApp-ноды
+RUN npm init -y \
+    && npm install n8n@latest @salmaneelidrissi/n8n-nodes-whatsapp-web@^1 \
+    && npm cache clean --force
 
-# Директория для whatsapp-webjs auth (как у тебя)
+# Директория для whatsapp-webjs
 RUN mkdir -p /home/node/.wwebjs_auth \
-    && chown -R node:node /home/node/.wwebjs_auth
+    && chown -R node:node /home/node
 
 USER node
 
 EXPOSE 5678
 
-CMD ["n8n", "start"]
+CMD ["npx", "n8n", "start"]
