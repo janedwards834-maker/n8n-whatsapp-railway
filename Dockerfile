@@ -1,21 +1,29 @@
-# Stage 1: Builder для n8n и нода
-FROM node:22-bookworm-slim AS builder
+# =========================================
+# n8n + Chromium (Puppeteer) on Node 20 LTS
+# =========================================
+
+# Stage 1: Builder — ставим n8n и кастомную ноду глобально
+FROM node:20-bookworm-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     python3 \
     make \
     g++ \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g n8n@latest @salmaneelidrissi/n8n-nodes-whatsapp-web@^1
+# Ставим n8n и WhatsApp-ноду (как у тебя было)
+RUN npm install -g n8n@latest @salmaneelidrissi/n8n-nodes-whatsapp-web@^1 \
+    && npm cache clean --force
 
-# Stage 2: Финальный минимальный образ
-FROM node:22-bookworm-slim
+
+# Stage 2: Runtime — минимальный образ с Chromium + n8n
+FROM node:20-bookworm-slim
 
 USER root
 
-# Установка Chromium + ключевых зависимостей (без libasound2t64 — используем libasound2)
+# Chromium + зависимости (Debian Bookworm)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     ca-certificates \
@@ -51,13 +59,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxtst6 \
     wget \
     xdg-utils \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-# Копируем n8n и whatsapp-нод из builder
+# Копируем глобально установленные модули и бинарник n8n из builder
 COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=builder /usr/local/bin/n8n /usr/local/bin/n8n
 
-RUN mkdir -p /home/node/.wwebjs_auth && chown -R node:node /home/node/.wwebjs_auth
+# (Опционально, но часто помогает) чтобы глобальные модули точно резолвились
+ENV NODE_PATH=/usr/local/lib/node_modules
+
+# Директория для whatsapp-webjs auth (как у тебя)
+RUN mkdir -p /home/node/.wwebjs_auth \
+    && chown -R node:node /home/node/.wwebjs_auth
 
 USER node
 
